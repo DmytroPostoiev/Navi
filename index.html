@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Liefer-App" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="format-detection" content="telephone=no" />
+  <meta name="theme-color" content="#0f172a" id="themeColorMeta" />
+  <title>Liefer-App</title>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    :root, [data-theme="dark"] {
+      --bg: #0b1220;
+      --card: #172033;
+      --card2: #2a3650;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --accent: #3b82f6;
+      --accent2: #22c55e;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --header-bg: rgba(11, 18, 32, 0.92);
+      --border: #24304a;
+      --tab-bg: rgba(11, 18, 32, 0.95);
+      --radius: 18px;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --tabh: 62px;
+    }
+    [data-theme="light"] {
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --card2: #e2e8f0;
+      --text: #0f172a;
+      --muted: #64748b;
+      --accent: #2563eb;
+      --accent2: #16a34a;
+      --danger: #dc2626;
+      --warning: #d97706;
+      --header-bg: rgba(241, 245, 249, 0.92);
+      --border: #dbe3ee;
+      --tab-bg: rgba(255, 255, 255, 0.95);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      min-height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+      -webkit-text-size-adjust: 100%;
+      -webkit-touch-callout: none;
+      touch-action: manipulation;
+      transition: background .3s ease, color .3s ease;
+    }
+    body { padding-bottom: calc(var(--tabh) + var(--safe-bottom) + 24px); }
+    body.has-fab { padding-bottom: calc(var(--tabh) + var(--safe-bottom) + 96px); }
+    input, textarea, button { font-family: inherit; }
+
+    /* ===== Header ===== */
+    header {
+      position: sticky; top: 0; z-index: 50;
+      background: var(--header-bg);
+      -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+      padding: calc(var(--safe-top) + 8px) 16px 10px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    header h1 { font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em; }
+    .head-right { display: flex; align-items: center; gap: 8px; }
+    .loc-badge, .theme-btn {
+      font-size: .8rem; background: var(--card); border: 1px solid var(--border);
+      min-height: 36px; padding: 0 12px; border-radius: 999px; color: var(--muted);
+      white-space: nowrap; display: inline-flex; align-items: center; cursor: pointer;
+    }
+    .loc-badge.ok { color: var(--accent2); }
+    .theme-btn { width: 36px; padding: 0; justify-content: center; font-size: 1rem; }
+
+    /* ===== Tabs ===== */
+    .tabs {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+      display: flex; background: var(--tab-bg);
+      -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+      border-top: 1px solid var(--border);
+      padding-bottom: var(--safe-bottom);
+    }
+    .tab {
+      flex: 1; height: var(--tabh); position: relative;
+      font-size: .72rem; font-weight: 600; color: var(--muted);
+      background: none; border: none; cursor: pointer;
+    }
+    .tab.active { color: var(--accent); }
+    .tab svg { display: block; margin: 0 auto 3px; width: 26px; height: 26px; }
+    .tab .badge {
+      position: absolute; top: 6px; left: calc(50% + 8px);
+      min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+      background: var(--danger); color: #fff; font-size: .68rem; line-height: 18px;
+    }
+
+    .section { display: none; padding: 14px 14px 0; }
+    .section.active { display: block; animation: fadeIn .2s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    .card { background: var(--card); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; }
+
+    /* ===== Buttons (min. 48px Touch-Höhe) ===== */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; min-height: 50px; padding: 12px 16px;
+      border: none; border-radius: 14px;
+      font-size: 1.02rem; font-weight: 700; cursor: pointer;
+      transition: transform .1s, opacity .15s;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn:disabled { opacity: .4; pointer-events: none; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-success { background: var(--accent2); color: #052e16; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-warning { background: var(--warning); color: #1c1917; }
+    .btn-ghost { background: var(--card2); color: var(--text); }
+    .btn-sm { min-height: 46px; font-size: .95rem; padding: 10px 12px; }
+    .btn-row { display: flex; gap: 8px; margin-top: 10px; }
+    .btn-row .btn { flex: 1; min-width: 0; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+    .grid2 .btn { margin: 0; }
+
+    /* ===== Foto ===== */
+    .preview-wrap {
+      position: relative; width: 100%; aspect-ratio: 4/3; background: #000;
+      border-radius: var(--radius); overflow: hidden; margin-bottom: 12px;
+    }
+    .preview-wrap img { width: 100%; height: 100%; object-fit: cover; }
+    .preview-placeholder {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 100%; color: #94a3b8; font-size: .95rem; gap: 8px; text-align: center; padding: 0 20px;
+    }
+    #ocrProgress { margin-top: 12px; font-size: .9rem; color: var(--muted); text-align: center; }
+    .progress-bar { height: 8px; background: var(--card2); border-radius: 4px; margin-top: 8px; overflow: hidden; }
+    .progress-bar span { display: block; height: 100%; background: var(--accent); width: 0; transition: width .2s; }
+    .thumbs { display: flex; gap: 10px; overflow-x: auto; padding: 6px 0 10px; margin-bottom: 4px; -webkit-overflow-scrolling: touch; }
+    .thumbs:empty { display: none; }
+    .thumb { position: relative; flex-shrink: 0; width: 76px; height: 76px; border-radius: 12px; border: 2px solid var(--card2); }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; }
+    .thumb .del {
+      position: absolute; top: -8px; right: -8px; width: 28px; height: 28px;
+      background: var(--danger); color: #fff; border: 2px solid var(--card);
+      border-radius: 50%; font-size: 15px; line-height: 1; cursor: pointer;
+    }
+    .thumb.done { border-color: var(--accent2); }
+
+    textarea {
+      width: 100%; min-height: 110px; background: var(--card2); border: 1px solid var(--border);
+      border-radius: 14px; color: var(--text); padding: 12px; font-size: 16px; /* 16px = kein iOS-Zoom */
+      resize: vertical; margin-bottom: 10px;
+    }
+    textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+
+    /* ===== Liste ===== */
+    .stats { display: flex; gap: 8px; margin-bottom: 12px; }
+    .stat { flex: 1; background: var(--card); border-radius: 14px; padding: 10px; text-align: center; }
+    .stat .val { font-size: 1.5rem; font-weight: 800; }
+    .stat .lbl { font-size: .72rem; color: var(--muted); margin-top: 2px; }
+
+    .route-info {
+      background: linear-gradient(135deg, #1e3a5f, #0f766e); color: #f1f5f9;
+      border-radius: var(--radius); padding: 12px 14px; margin-bottom: 12px; font-size: .92rem;
+    }
+    [data-theme="light"] .route-info { background: linear-gradient(135deg, #dbeafe, #ccfbf1); color: #0f172a; }
+    .route-info strong { color: var(--accent2); }
+    [data-theme="light"] .route-info strong { color: #047857; }
+
+    .hint { font-size: .78rem; color: var(--muted); margin: 4px 0 12px; text-align: center; }
+
+    .addr-item {
+      background: var(--card); border-radius: var(--radius);
+      padding: 14px 14px 14px 52px; margin-bottom: 10px;
+      border-left: 5px solid var(--accent); position: relative;
+      transition: box-shadow .15s, opacity .15s;
+      -webkit-user-select: none; user-select: none;
+    }
+    .addr-item.next { border-left-color: var(--accent2); box-shadow: 0 0 0 2px var(--accent2) inset; }
+    .addr-item.done { opacity: .5; border-left-color: var(--muted); }
+    .addr-item.dragging { z-index: 30; box-shadow: 0 14px 30px rgba(0,0,0,.4); border-left-color: var(--warning); transition: none; position: relative; }
+    .addr-item.drag-over { outline: 3px dashed var(--accent); outline-offset: 2px; }
+    .drag-handle {
+      position: absolute; left: 0; top: 0; bottom: 0; width: 46px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+      color: var(--muted); touch-action: none; cursor: grab;
+    }
+    .drag-handle span { display: block; width: 20px; height: 3px; background: currentColor; border-radius: 2px; }
+    .num {
+      position: absolute; top: 12px; right: 12px; width: 32px; height: 32px;
+      background: var(--accent); color: #fff; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; font-size: .9rem; font-weight: 800;
+    }
+    .addr-item.next .num { background: var(--accent2); color: #052e16; }
+    .addr-item.done .num { background: var(--muted); }
+    .addr-text { font-size: 1.08rem; font-weight: 700; line-height: 1.3; padding-right: 42px; margin-bottom: 4px; word-break: break-word; }
+    .addr-meta { font-size: .85rem; color: var(--muted); margin-bottom: 2px; }
+    .addr-meta .dist { color: var(--accent2); font-weight: 700; }
+    .addr-meta .warn { color: var(--warning); }
+    .addr-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .addr-actions .btn { flex: 1; }
+    .addr-actions .icon-btn { flex: 0 0 50px; width: 50px; padding: 0; font-size: 1.1rem; }
+
+    .empty { text-align: center; padding: 40px 20px; color: var(--muted); line-height: 1.5; }
+    .empty svg { margin-bottom: 12px; opacity: .5; }
+
+    /* FAB: Nächster Stopp */
+    .fab {
+      position: fixed; left: 14px; right: 14px; z-index: 90;
+      bottom: calc(var(--tabh) + var(--safe-bottom) + 12px);
+      min-height: 58px; border: none; border-radius: 18px;
+      background: var(--accent2); color: #052e16; font-size: 1.1rem; font-weight: 800;
+      box-shadow: 0 8px 24px rgba(0,0,0,.35); display: none; align-items: center; justify-content: center; gap: 10px;
+      padding: 8px 16px;
+    }
+    .fab.show { display: flex; }
+    .fab:active { transform: scale(.98); }
+    .fab small { display: block; font-size: .75rem; font-weight: 600; opacity: .8; max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .fab .t { text-align: left; }
+
+    /* ===== QR ===== */
+    #qr-reader { width: 100%; border-radius: var(--radius); overflow: hidden; background: #000; }
+    .qr-result { margin-top: 12px; padding: 12px; background: var(--card2); border-radius: 12px; word-break: break-all; font-size: .95rem; }
+
+    .toast {
+      position: fixed; top: calc(var(--safe-top) + 64px); left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: #334155; color: #fff; padding: 11px 18px; border-radius: 999px;
+      font-size: .92rem; font-weight: 600; opacity: 0; pointer-events: none;
+      transition: all .25s; z-index: 200; max-width: 92%; text-align: center;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📦 Liefer-App</h1>
+    <div class="head-right">
+      <button class="theme-btn" id="themeBtn" title="Design">🌓</button>
+      <div class="loc-badge" id="locBadge">📍 Standort…</div>
+    </div>
+  </header>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- FOTO / OCR -->
+  <section class="section active" id="sec-foto">
+    <div class="card">
+      <div class="preview-wrap" id="previewWrap">
+        <div class="preview-placeholder" id="previewPlaceholder">
+          <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          Fotos der Adressliste machen
+        </div>
+        <img id="previewImg" class="hidden" alt="Vorschau" />
+      </div>
+      <div class="thumbs" id="thumbs"></div>
+      <input type="file" id="fileInput" accept="image/*" capture="environment" multiple class="hidden" />
+
+      <div class="grid2">
+        <button class="btn btn-primary" id="btnCamera">📷 Foto</button>
+        <button class="btn btn-ghost" id="btnGallery">🖼️ Galerie</button>
+      </div>
+      <button class="btn btn-success" id="btnOcr" disabled>🔍 Alle Fotos erkennen</button>
+      <button class="btn btn-ghost" id="btnClearPhotos" style="margin-top:8px" disabled>Fotos löschen</button>
+
+      <div id="ocrProgress" class="hidden">
+        <div id="ocrStatus">Erkenne Text…</div>
+        <div class="progress-bar"><span id="ocrBar"></span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p style="font-size:.88rem;color:var(--muted);margin-bottom:8px">Oder Adressen einfügen (eine pro Zeile):</p>
+      <textarea id="manualInput" placeholder="Musterstraße 12, 12345 Berlin&#10;Beispielweg 5, 54321 Hamburg"></textarea>
+      <button class="btn btn-ghost" id="btnManual">Adressen übernehmen</button>
+    </div>
+  </section>
+
+  <!-- LISTE -->
+  <section class="section" id="sec-liste">
+    <div class="stats">
+      <div class="stat"><div class="val" id="statTotal">0</div><div class="lbl">Gesamt</div></div>
+      <div class="stat"><div class="val" id="statOpen">0</div><div class="lbl">Offen</div></div>
+      <div class="stat"><div class="val" id="statDone">0</div><div class="lbl">Erledigt</div></div>
+    </div>
+
+    <div class="route-info hidden" id="routeInfo">
+      Optimierte Route: <strong id="routeDist">–</strong> · <span id="routeStops">0</span> Stopps
+    </div>
+
+    <div class="grid2">
+      <button class="btn btn-warning btn-sm" id="btnOptimize">🚀 Route optimieren</button>
+      <button class="btn btn-ghost btn-sm" id="btnSort">📍 Nur Nähe</button>
+      <button class="btn btn-ghost btn-sm" id="btnClearDone">🧹 Erledigte löschen</button>
+      <button class="btn btn-danger btn-sm" id="btnNewRoute">🆕 Neue Route</button>
+    </div>
+    <p class="hint" id="dragHint">↕ Reihenfolge ändern: Griff links gedrückt halten und ziehen</p>
+
+    <div id="addrList"></div>
+    <div class="empty hidden" id="emptyList">
+      <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+      <p>Noch keine Adressen.<br>Mach Fotos oder füge manuell ein.</p>
+    </div>
+  </section>
+
+  <!-- QR -->
+  <section class="section" id="sec-qr">
+    <div class="card">
+      <p style="font-size:.92rem;color:var(--muted);margin-bottom:12px">QR-Code neben der Adresse scannen → direkt navigieren</p>
+      <div id="qr-reader"></div>
+      <button class="btn btn-primary" id="btnQrStart" style="margin-top:12px">📷 Scanner starten</button>
+      <button class="btn btn-danger hidden" id="btnQrStop" style="margin-top:12px">Scanner stoppen</button>
+      <div id="qrResult" class="qr-result hidden"></div>
+    </div>
+  </section>
+
+  <!-- FAB: nächster Stopp -->
+  <button class="fab" id="fab">
+    <span style="font-size:1.5rem">🧭</span>
+    <span class="t">Nächster Stopp<small id="fabAddr"></small></span>
+  </button>
+
+  <nav class="tabs">
+    <button class="tab active" data-sec="sec-foto">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><circle cx="12" cy="13" r="3"/></svg>
+      Foto
+    </button>
+    <button class="tab" data-sec="sec-liste">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+      Liste<span class="badge hidden" id="tabBadge">0</span>
+    </button>
+    <button class="tab" data-sec="sec-qr">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20v.01M20 20v.01M17 17v3h3"/></svg>
+      QR Scan
+    </button>
+  </nav>
+
+  <script>
+    // ========== STATE ==========
+    let addresses = []; // { id, text, lat, lon, dist, done, order }
+    let photos = [];    // { id, file, url, processed }
+    let myLat = null, myLon = null;
+    let html5QrCode = null;
+    let currentTab = 'sec-foto';
+
+    const STORAGE_KEY = 'lieferapp_addresses_v1';
+    const THEME_KEY = 'lieferapp_theme_v1'; // auto | light | dark
+
+    // ========== THEME ==========
+    function getThemeMode() {
+      try { return localStorage.getItem(THEME_KEY) || 'auto'; } catch (e) { return 'auto'; }
+    }
+    function applyTheme() {
+      const mode = getThemeMode();
+      let theme = mode;
+      if (mode === 'auto') {
+        const h = new Date().getHours();
+        theme = (h >= 6 && h < 20) ? 'light' : 'dark';
+      }
+      document.documentElement.setAttribute('data-theme', theme);
+      const isLight = theme === 'light';
+      document.getElementById('themeColorMeta').content = isLight ? '#f1f5f9' : '#0b1220';
+      const sb = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+      if (sb) sb.content = isLight ? 'default' : 'black-translucent';
+      document.getElementById('themeBtn').textContent = mode === 'auto' ? '🌓' : (mode === 'light' ? '☀️' : '🌙');
+    }
+    document.getElementById('themeBtn').onclick = () => {
+      const order = ['auto', 'light', 'dark'];
+      const next = order[(order.indexOf(getThemeMode()) + 1) % 3];
+      try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+      applyTheme();
+      toast(next === 'auto' ? 'Design: automatisch (Tag/Nacht)' : next === 'light' ? 'Design: hell' : 'Design: dunkel');
+    };
+    applyTheme();
+    setInterval(applyTheme, 60000);
+
+    // ========== HELPERS ==========
+    let toastTimer;
+    function toast(msg, ms = 2200) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove('show'), ms);
+    }
+    function haversine(lat1, lon1, lat2, lon2) {
+      const R = 6371, rad = Math.PI / 180;
+      const dLat = (lat2 - lat1) * rad, dLon = (lon2 - lon1) * rad;
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+    function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+    function escapeHtml(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function fmtDist(d) { return d < 1 ? Math.round(d * 1000) + ' m' : d.toFixed(1) + ' km'; }
+    function getSorted() {
+      return [...addresses].sort((a, b) => {
+        if (a.done !== b.done) return a.done ? 1 : -1;
+        return (a.order ?? 9999) - (b.order ?? 9999);
+      });
+    }
+    function renumber(list) { list.forEach((a, i) => { a.order = i; }); }
+
+    // ========== BILDSCHIRM WACH HALTEN ==========
+    let wakeLock = null;
+    async function requestWake() {
+      try {
+        if ('wakeLock' in navigator && !wakeLock) {
+          wakeLock = await navigator.wakeLock.request('screen');
+          wakeLock.addEventListener('release', () => { wakeLock = null; });
+        }
+      } catch (e) { wakeLock = null; }
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') { requestWake(); updateLocation(); }
+    });
+    document.addEventListener('click', requestWake, { once: true });
+
+    // ========== PERSISTENCE ==========
+    function saveAddresses() {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(addresses)); } catch (e) { console.warn('Save failed', e); }
+    }
+    function loadAddresses() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          addresses = JSON.parse(raw) || [];
+          addresses.forEach(a => {
+            if (a.done === undefined) a.done = false;
+            if (a.order === undefined) a.order = 0;
+          });
+          if (addresses.length) {
+            toast(`${addresses.length} gespeicherte Adressen geladen`);
+            if (addresses.some(a => a.lat == null)) setTimeout(() => geocodeAll(false), 500);
+          }
+        }
+      } catch (e) { console.warn('Load failed', e); }
+    }
+
+    // ========== GEOLOCATION ==========
+    function updateLocation() {
+      const badge = document.getElementById('locBadge');
+      if (!navigator.geolocation) { badge.textContent = '📍 Kein GPS'; return; }
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          myLat = pos.coords.latitude; myLon = pos.coords.longitude;
+          badge.textContent = '📍 Standort OK';
+          badge.classList.add('ok');
+          if (addresses.length) { recalculateDistances(); renderList(true); }
+        },
+        () => { badge.textContent = '📍 Standort aus'; badge.classList.remove('ok'); },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+      );
+    }
+    document.getElementById('locBadge').onclick = () => { updateLocation(); toast('Standort wird aktualisiert…'); };
+    updateLocation();
+    setInterval(updateLocation, 60000);
+
+    // ========== GEOCODING ==========
+    async function geocode(address) {
+      try {
+        const q = encodeURIComponent(address);
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=de&accept-language=de`);
+        const data = await res.json();
+        if (data && data[0]) return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+      } catch (e) { console.warn('Geocode fail', address, e); }
+      return null;
+    }
+
+    let geocoding = false;
+    async function geocodeAll(showToast = true) {
+      if (geocoding) return;
+      const need = addresses.filter(a => a.lat == null && !a.geoFailed);
+      if (!need.length) { recalculateDistances(); renderList(); return; }
+      geocoding = true;
+      const badge = document.getElementById('locBadge');
+      let n = 0;
+      for (const a of need) {
+        n++;
+        if (showToast) badge.textContent = `🔎 ${n}/${need.length}`;
+        const geo = await geocode(a.text);
+        if (geo) { a.lat = geo.lat; a.lon = geo.lon; delete a.geoFailed; }
+        else { a.geoFailed = true; }
+        recalculateDistances();
+        saveAddresses();
+        renderList(true);
+        await new Promise(r => setTimeout(r, 1100)); // Nominatim Rate-Limit
+      }
+      geocoding = false;
+      badge.textContent = myLat != null ? '📍 Standort OK' : '📍 Standort…';
+      if (showToast) toast('Koordinaten fertig');
+    }
+
+    function recalculateDistances() {
+      if (myLat == null) return;
+      addresses.forEach(a => { a.dist = a.lat != null ? haversine(myLat, myLon, a.lat, a.lon) : null; });
+    }
+
+    // ========== TSP (Nearest Neighbor + 2-opt) ==========
+    function optimizeRoute() {
+      const open = addresses.filter(a => !a.done && a.lat != null);
+      if (open.length < 2) { toast('Zu wenige Adressen mit Koordinaten'); return; }
+      if (myLat == null) { toast('Standort wird benötigt'); updateLocation(); return; }
+
+      let current = { lat: myLat, lon: myLon };
+      const remaining = [...open];
+      const path = [];
+      while (remaining.length) {
+        let bestIdx = 0, bestDist = Infinity;
+        for (let i = 0; i < remaining.length; i++) {
+          const d = haversine(current.lat, current.lon, remaining[i].lat, remaining[i].lon);
+          if (d < bestDist) { bestDist = d; bestIdx = i; }
+        }
+        const next = remaining.splice(bestIdx, 1)[0];
+        path.push(next);
+        current = next;
+      }
+
+      let improved = true, iterations = 0;
+      while (improved && iterations < 100) {
+        improved = false; iterations++;
+        for (let i = 0; i < path.length - 1; i++) {
+          for (let j = i + 2; j < path.length; j++) {
+            const a = i === 0 ? { lat: myLat, lon: myLon } : path[i - 1];
+            const b = path[i], c = path[j - 1], d = path[j];
+            const before = haversine(a.lat, a.lon, b.lat, b.lon) + haversine(c.lat, c.lon, d.lat, d.lon);
+            const after = haversine(a.lat, a.lon, c.lat, c.lon) + haversine(b.lat, b.lon, d.lat, d.lon);
+            if (after < before - 0.001) {
+              const seg = path.slice(i, j).reverse();
+              path.splice(i, j - i, ...seg);
+              improved = true;
+            }
+          }
+        }
+      }
+
+      // Adressen ohne Koordinaten hinter die optimierte Route, Erledigte ans Ende
+      const noGeo = addresses.filter(a => !a.done && a.lat == null);
+      const doneList = addresses.filter(a => a.done);
+      const all = [...path, ...noGeo, ...doneList];
+      renumber(all);
+
+      recalculateDistances();
+      let total = 0, prev = { lat: myLat, lon: myLon };
+      path.forEach(p => { total += haversine(prev.lat, prev.lon, p.lat, p.lon); prev = p; });
+
+      document.getElementById('routeInfo').classList.remove('hidden');
+      document.getElementById('routeDist').textContent = fmtDist(total);
+      document.getElementById('routeStops').textContent = path.length;
+
+      saveAddresses();
+      renderList();
+      toast(`Route optimiert · ${path.length} Stopps · ${total.toFixed(1)} km`);
+    }
+
+    // ========== LIST RENDERING ==========
+    function renderList(keepScroll) {
+      const list = document.getElementById('addrList');
+      const empty = document.getElementById('emptyList');
+      const open = addresses.filter(a => !a.done);
+      const done = addresses.filter(a => a.done);
+
+      document.getElementById('statTotal').textContent = addresses.length;
+      document.getElementById('statOpen').textContent = open.length;
+      document.getElementById('statDone').textContent = done.length;
+      const badge = document.getElementById('tabBadge');
+      badge.textContent = open.length;
+      badge.classList.toggle('hidden', open.length === 0);
+
+      const sorted = getSorted();
+      const nextOne = sorted.find(a => !a.done);
+      const fab = document.getElementById('fab');
+      const showFab = !!nextOne && currentTab === 'sec-liste';
+      fab.classList.toggle('show', showFab);
+      document.body.classList.toggle('has-fab', showFab);
+      if (nextOne) document.getElementById('fabAddr').textContent = nextOne.text;
+
+      if (!addresses.length) {
+        list.innerHTML = '';
+        empty.classList.remove('hidden');
+        document.getElementById('routeInfo').classList.add('hidden');
+        return;
+      }
+      empty.classList.add('hidden');
+
+      list.innerHTML = sorted.map((a, idx) => {
+        const distStr = a.dist != null ? `<span class="dist">${fmtDist(a.dist)}</span>` : '';
+        const warn = (a.lat == null && a.geoFailed) ? `<span class="warn">⚠️ Adresse nicht gefunden – bitte bearbeiten</span>` : '';
+        const num = a.done ? '✓' : (idx + 1);
+        const isNext = nextOne && nextOne.id === a.id;
+        return `
+          <div class="addr-item ${a.done ? 'done' : ''} ${isNext ? 'next' : ''}" data-id="${a.id}">
+            <div class="drag-handle" data-drag-id="${a.id}"><span></span><span></span><span></span></div>
+            <div class="num">${num}</div>
+            <div class="addr-text">${escapeHtml(a.text)}</div>
+            <div class="addr-meta">${distStr}${distStr && warn ? ' · ' : ''}${warn}</div>
+            <div class="addr-actions">
+              <button class="btn btn-primary btn-sm" data-act="nav" data-id="${a.id}">🧭 Navigieren</button>
+              <button class="btn ${a.done ? 'btn-ghost' : 'btn-success'} btn-sm" data-act="done" data-id="${a.id}">${a.done ? '↩ Zurück' : '✓ Erledigt'}</button>
+              <button class="btn btn-ghost btn-sm icon-btn" data-act="edit" data-id="${a.id}" aria-label="Bearbeiten">✏️</button>
+              <button class="btn btn-ghost btn-sm icon-btn" data-act="del" data-id="${a.id}" aria-label="Löschen">🗑️</button>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    // Aktionen per Event-Delegation
+    document.getElementById('addrList').addEventListener('click', e => {
+      const btn = e.target.closest('button[data-act]');
+      if (!btn) return;
+      const id = btn.dataset.id;
+      const act = btn.dataset.act;
+      if (act === 'nav') navigateTo(id);
+      else if (act === 'done') toggleDone(id);
+      else if (act === 'edit') editAddress(id);
+      else if (act === 'del') deleteAddress(id);
+    });
+
+    function navigateTo(id) {
+      const a = addresses.find(x => x.id === id);
+      if (!a) return;
+      const dest = a.lat != null ? `${a.lat},${a.lon}` : encodeURIComponent(a.text);
+      const name = encodeURIComponent(a.text);
+      const url = a.lat != null
+        ? `https://maps.apple.com/?daddr=${dest}&q=${name}&dirflg=d`
+        : `https://maps.apple.com/?daddr=${dest}&dirflg=d`;
+      window.location.href = url;
+    }
+
+    function toggleDone(id) {
+      const a = addresses.find(x => x.id === id);
+      if (!a) return;
+      a.done = !a.done;
+      // Neu geöffnete Adresse nach vorne in die offene Liste
+      if (!a.done) a.order = -1;
+      renumber(getSorted());
+      saveAddresses();
+      renderList(true);
+      toast(a.done ? '✓ Erledigt' : 'Wieder geöffnet');
+    }
+
+    function editAddress(id) {
+      const a = addresses.find(x => x.id === id);
+      if (!a) return;
+      const t = prompt('Adresse bearbeiten:', a.text);
+      if (t === null) return;
+      const clean = t.trim();
+      if (!clean) return;
+      if (clean !== a.text) {
+        a.text = clean; a.lat = null; a.lon = null; a.dist = null; delete a.geoFailed;
+        saveAddresses(); renderList(true);
+        geocodeAll(false);
+      }
+    }
+
+    function deleteAddress(id) {
+      const a = addresses.find(x => x.id === id);
+      if (!a) return;
+      if (!confirm('Diese Adresse löschen?\n\n' + a.text)) return;
+      addresses = addresses.filter(x => x.id !== id);
+      renumber(getSorted());
+      saveAddresses(); renderList(true);
+      toast('Gelöscht');
+    }
+
+    document.getElementById('fab').onclick = () => {
+      const next = getSorted().find(a => !a.done);
+      if (next) navigateTo(next.id);
+    };
+
+    // ========== DRAG & DROP (Touch + Maus, mit Auto-Scroll) ==========
+    document.getElementById('addrList').addEventListener('touchstart', onDragStart, { passive: false });
+    document.getElementById('addrList').addEventListener('mousedown', onDragStart);
+
+    function onDragStart(e) {
+      const handle = e.target.closest('.drag-handle');
+      if (!handle) return;
+      e.preventDefault();
+      const id = handle.dataset.dragId;
+      const el = document.querySelector(`.addr-item[data-id="${id}"]`);
+      if (!el) return;
+
+      const isTouch = e.type === 'touchstart';
+      const startY = isTouch ? e.touches[0].clientY : e.clientY;
+      const startScroll = window.scrollY;
+      let lastY = startY;
+      let rafId = null;
+      let targetId = null;
+
+      el.classList.add('dragging');
+      if (navigator.vibrate) navigator.vibrate(10);
+
+      function findTarget(y) {
+        const items = [...document.querySelectorAll('.addr-item')].filter(i => i !== el);
+        for (const item of items) {
+          const r = item.getBoundingClientRect();
+          if (y > r.top && y < r.bottom) return item;
+        }
+        return null;
+      }
+
+      function frame() {
+        // Auto-Scroll am Rand
+        const edge = 110, speed = 14;
+        if (lastY < edge + 60) window.scrollBy(0, -speed);
+        else if (lastY > window.innerHeight - edge - 90) window.scrollBy(0, speed);
+        el.style.transform = `translateY(${lastY - startY + (window.scrollY - startScroll)}px) scale(1.02)`;
+        const t = findTarget(lastY);
+        document.querySelectorAll('.addr-item.drag-over').forEach(x => x.classList.remove('drag-over'));
+        if (t) { t.classList.add('drag-over'); targetId = t.dataset.id; } else { targetId = null; }
+        rafId = requestAnimationFrame(frame);
+      }
+      rafId = requestAnimationFrame(frame);
+
+      const moveEvt = isTouch ? 'touchmove' : 'mousemove';
+      const upEvt = isTouch ? 'touchend' : 'mouseup';
+
+      function onMove(ev) {
+        ev.preventDefault();
+        lastY = ev.touches ? ev.touches[0].clientY : ev.clientY;
+      }
+      function onUp() {
+        cancelAnimationFrame(rafId);
+        document.removeEventListener(moveEvt, onMove);
+        document.removeEventListener(upEvt, onUp);
+        document.removeEventListener('touchcancel', onUp);
+        el.classList.remove('dragging');
+        el.style.transform = '';
+        document.querySelectorAll('.addr-item.drag-over').forEach(x => x.classList.remove('drag-over'));
+        if (targetId && targetId !== id) reorderAddresses(id, targetId);
+        else renderList(true);
+      }
+      document.addEventListener(moveEvt, onMove, { passive: false });
+      document.addEventListener(upEvt, onUp);
+      document.addEventListener('touchcancel', onUp);
+    }
+
+    function reorderAddresses(fromId, toId) {
+      const sorted = getSorted();
+      const fromIdx = sorted.findIndex(a => a.id === fromId);
+      const toIdx = sorted.findIndex(a => a.id === toId);
+      if (fromIdx < 0 || toIdx < 0) return;
+      const [item] = sorted.splice(fromIdx, 1);
+      sorted.splice(toIdx, 0, item);
+      renumber(sorted);
+      saveAddresses();
+      renderList(true);
+      toast('Reihenfolge geändert');
+    }
+
+    // ========== ADRESSEN AUS TEXT ==========
+    function parseAddresses(raw) {
+      return raw.split(/\r?\n/).map(l => l.trim()).filter(l => {
+        if (l.length < 8) return false;
+        if (/^\d+$/.test(l)) return false;
+        if (!/[a-zA-ZäöüÄÖÜß]/.test(l)) return false;
+        return true;
+      });
+    }
+
+    function addAddressesFromLines(lines) {
+      const existing = new Set(addresses.map(a => a.text.toLowerCase()));
+      let added = 0;
+      lines.forEach(text => {
+        const t = text.trim();
+        if (!t || existing.has(t.toLowerCase())) return;
+        existing.add(t.toLowerCase());
+        addresses.push({ id: uid(), text: t, lat: null, lon: null, dist: null, done: false, order: addresses.length });
+        added++;
+      });
+      renumber(getSorted());
+      saveAddresses();
+      renderList();
+      switchTab('sec-liste');
+      geocodeAll();
+      return added;
+    }
+
+    // ========== MEHRERE FOTOS ==========
+    function renderThumbs() {
+      const box = document.getElementById('thumbs');
+      box.innerHTML = photos.map(p => `
+        <div class="thumb ${p.processed ? 'done' : ''}">
+          <img src="${p.url}" alt="Foto" />
+          <button class="del" data-del="${p.id}">×</button>
+        </div>`).join('');
+      document.getElementById('btnOcr').disabled = photos.length === 0;
+      document.getElementById('btnClearPhotos').disabled = photos.length === 0;
+      if (photos.length) {
+        document.getElementById('previewImg').src = photos[photos.length - 1].url;
+        document.getElementById('previewImg').classList.remove('hidden');
+        document.getElementById('previewPlaceholder').classList.add('hidden');
+      } else {
+        document.getElementById('previewImg').classList.add('hidden');
+        document.getElementById('previewPlaceholder').classList.remove('hidden');
+      }
+    }
+    document.getElementById('thumbs').addEventListener('click', e => {
+      const b = e.target.closest('[data-del]');
+      if (!b) return;
+      const p = photos.find(x => x.id === b.dataset.del);
+      if (p) URL.revokeObjectURL(p.url);
+      photos = photos.filter(x => x.id !== b.dataset.del);
+      renderThumbs();
+    });
+
+    document.getElementById('btnClearPhotos').onclick = () => {
+      photos.forEach(p => URL.revokeObjectURL(p.url));
+      photos = [];
+      renderThumbs();
+      toast('Fotos gelöscht');
+    };
+    document.getElementById('btnCamera').onclick = () => {
+      const input = document.getElementById('fileInput');
+      input.setAttribute('capture', 'environment');
+      input.removeAttribute('multiple');
+      input.click();
+    };
+    document.getElementById('btnGallery').onclick = () => {
+      const input = document.getElementById('fileInput');
+      input.removeAttribute('capture');
+      input.setAttribute('multiple', '');
+      input.click();
+    };
+    document.getElementById('fileInput').onchange = e => {
+      const files = Array.from(e.target.files || []);
+      if (!files.length) return;
+      files.forEach(file => photos.push({ id: uid(), file, url: URL.createObjectURL(file), processed: false }));
+      renderThumbs();
+      toast(`${files.length} Foto(s) hinzugefügt`);
+      e.target.value = '';
+    };
+
+    // ========== OCR ==========
+    // Foto vor der Erkennung verkleinern + Graustufen/Kontrast → schneller und genauer
+    async function preprocessImage(file) {
+      let bmp;
+      try { bmp = await createImageBitmap(file); }
+      catch (e) {
+        bmp = await new Promise((res, rej) => {
+          const img = new Image();
+          img.onload = () => res(img);
+          img.onerror = rej;
+          img.src = URL.createObjectURL(file);
+        });
+      }
+      const w0 = bmp.width, h0 = bmp.height;
+      const maxSide = 2000;
+      const scale = Math.min(1, maxSide / Math.max(w0, h0));
+      const w = Math.round(w0 * scale), h = Math.round(h0 * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(bmp, 0, 0, w, h);
+      try {
+        const img = ctx.getImageData(0, 0, w, h);
+        const d = img.data;
+        let min = 255, max = 0;
+        for (let i = 0; i < d.length; i += 4) {
+          const g = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) | 0;
+          d[i] = d[i + 1] = d[i + 2] = g;
+          if (g < min) min = g;
+          if (g > max) max = g;
+        }
+        const range = Math.max(1, max - min);
+        for (let i = 0; i < d.length; i += 4) {
+          const v = Math.max(0, Math.min(255, ((d[i] - min) * 255 / range) | 0));
+          d[i] = d[i + 1] = d[i + 2] = v;
+        }
+        ctx.putImageData(img, 0, 0);
+      } catch (e) { /* Rohbild verwenden */ }
+      return canvas;
+    }
+
+    document.getElementById('btnOcr').onclick = async () => {
+      if (!photos.length) return;
+      if (typeof Tesseract === 'undefined') { toast('OCR nicht geladen – Internet prüfen'); return; }
+      const btn = document.getElementById('btnOcr');
+      const prog = document.getElementById('ocrProgress');
+      const status = document.getElementById('ocrStatus');
+      const bar = document.getElementById('ocrBar');
+
+      btn.disabled = true;
+      prog.classList.remove('hidden');
+      let allLines = [];
+      const total = photos.length;
+      let curIdx = 0;
+
+      try {
+        const worker = await Tesseract.createWorker('deu', 1, {
+          logger: m => {
+            if (m.status === 'recognizing text') {
+              bar.style.width = Math.round(((curIdx + m.progress) / total) * 100) + '%';
+            }
+          }
+        });
+
+        for (let i = 0; i < photos.length; i++) {
+          curIdx = i;
+          status.textContent = `Foto ${i + 1} / ${total} wird erkannt…`;
+          const canvas = await preprocessImage(photos[i].file);
+          const { data: { text } } = await worker.recognize(canvas);
+          allLines = allLines.concat(parseAddresses(text));
+          photos[i].processed = true;
+          renderThumbs();
+        }
+        await worker.terminate();
+        bar.style.width = '100%';
+        status.textContent = 'Fertig!';
+
+        const unique = [...new Set(allLines.map(l => l.trim()))];
+        if (!unique.length) {
+          toast('Keine Adressen gefunden. Bitte manuell eingeben.');
+        } else {
+          toast(`${unique.length} Adressen aus ${total} Foto(s) erkannt`);
+          addAddressesFromLines(unique);
+        }
+      } catch (err) {
+        console.error(err);
+        toast('OCR fehlgeschlagen: ' + (err.message || err), 3500);
+      } finally {
+        btn.disabled = false;
+        setTimeout(() => prog.classList.add('hidden'), 1800);
+      }
+    };
+
+    // ========== MANUELL ==========
+    document.getElementById('btnManual').onclick = () => {
+      const lines = parseAddresses(document.getElementById('manualInput').value);
+      if (!lines.length) { toast('Keine gültigen Adressen gefunden'); return; }
+      const n = addAddressesFromLines(lines);
+      document.getElementById('manualInput').value = '';
+      toast(`${n} Adressen übernommen`);
+    };
+
+    // ========== LISTEN-BUTTONS ==========
+    document.getElementById('btnOptimize').onclick = optimizeRoute;
+
+    document.getElementById('btnSort').onclick = () => {
+      if (myLat == null) { toast('Standort noch nicht verfügbar'); updateLocation(); return; }
+      recalculateDistances();
+      const open = addresses.filter(a => !a.done).sort((a, b) => {
+        if (a.dist == null && b.dist == null) return 0;
+        if (a.dist == null) return 1;
+        if (b.dist == null) return -1;
+        return a.dist - b.dist;
+      });
+      renumber([...open, ...addresses.filter(a => a.done)]);
+      saveAddresses();
+      renderList();
+      document.getElementById('routeInfo').classList.add('hidden');
+      toast('Nach Nähe sortiert');
+    };
+
+    document.getElementById('btnClearDone').onclick = () => {
+      const n = addresses.filter(a => a.done).length;
+      if (!n) { toast('Keine erledigten Adressen'); return; }
+      addresses = addresses.filter(a => !a.done);
+      renumber(getSorted());
+      saveAddresses();
+      renderList();
+      toast(`${n} erledigte gelöscht`);
+    };
+
+    document.getElementById('btnNewRoute').onclick = () => {
+      if (addresses.length && !confirm('Aktuelle Route komplett löschen und neue starten?')) return;
+      addresses = [];
+      photos.forEach(p => URL.revokeObjectURL(p.url));
+      photos = [];
+      renderThumbs();
+      document.getElementById('manualInput').value = '';
+      saveAddresses();
+      renderList();
+      document.getElementById('routeInfo').classList.add('hidden');
+      switchTab('sec-foto');
+      toast('Neue Route – alte gelöscht');
+    };
+
+    // ========== QR-SCANNER ==========
+    document.getElementById('btnQrStart').onclick = async () => {
+      if (html5QrCode) return;
+      if (typeof Html5Qrcode === 'undefined') { toast('Scanner nicht geladen – Internet prüfen'); return; }
+      html5QrCode = new Html5Qrcode('qr-reader');
+      document.getElementById('btnQrStart').classList.add('hidden');
+      document.getElementById('btnQrStop').classList.remove('hidden');
+      document.getElementById('qrResult').classList.add('hidden');
+      try {
+        await html5QrCode.start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: (w, h) => { const s = Math.floor(Math.min(w, h) * 0.75); return { width: s, height: s }; } },
+          decoded => {
+            const cur = html5QrCode;
+            html5QrCode = null;
+            cur.stop().then(() => cur.clear()).catch(() => {});
+            document.getElementById('btnQrStart').classList.remove('hidden');
+            document.getElementById('btnQrStop').classList.add('hidden');
+            const res = document.getElementById('qrResult');
+            res.textContent = decoded;
+            res.classList.remove('hidden');
+            if (navigator.vibrate) navigator.vibrate(60);
+            handleQrResult(decoded);
+          },
+          () => {}
+        );
+      } catch (err) {
+        toast('Kamera-Zugriff fehlgeschlagen');
+        document.getElementById('btnQrStart').classList.remove('hidden');
+        document.getElementById('btnQrStop').classList.add('hidden');
+        html5QrCode = null;
+      }
+    };
+
+    function stopQr() {
+      if (html5QrCode) {
+        const cur = html5QrCode;
+        html5QrCode = null;
+        cur.stop().then(() => cur.clear()).catch(() => {});
+      }
+      document.getElementById('btnQrStart').classList.remove('hidden');
+      document.getElementById('btnQrStop').classList.add('hidden');
+    }
+    document.getElementById('btnQrStop').onclick = stopQr;
+
+    function handleQrResult(text) {
+      text = text.trim();
+      if (/^(https?:|geo:|maps:)/i.test(text)) {
+        toast('QR erkannt – öffne Navigation');
+        setTimeout(() => { window.location.href = text; }, 400);
+        return;
+      }
+      toast('Adresse erkannt – öffne Apple Maps');
+      setTimeout(() => {
+        window.location.href = `https://maps.apple.com/?daddr=${encodeURIComponent(text)}&dirflg=d`;
+      }, 500);
+    }
+
+    // ========== TABS ==========
+    function switchTab(secId) {
+      currentTab = secId;
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.getElementById(secId).classList.add('active');
+      document.querySelector(`.tab[data-sec="${secId}"]`).classList.add('active');
+      if (secId !== 'sec-qr') stopQr();
+      window.scrollTo(0, 0);
+      renderList(true);
+    }
+    document.querySelectorAll('.tab').forEach(tab => { tab.onclick = () => switchTab(tab.dataset.sec); });
+
+    // ========== INIT ==========
+    loadAddresses();
+    renderList();
+    renderThumbs();
+    // Hat der Nutzer schon Adressen, direkt zur Liste
+    if (addresses.length) switchTab('sec-liste');
+  </script>
+</body>
+</html>
